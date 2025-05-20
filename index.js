@@ -77,6 +77,21 @@ async function parseDocx(filePath) {
   }
 }
 
+// Helper function to delete file
+function deleteFile(filePath) {
+  return new Promise((resolve, reject) => {
+    fs.unlink(filePath, (err) => {
+      if (err) {
+        console.error(`Error deleting file ${filePath}:`, err);
+        reject(err);
+      } else {
+        console.log(`Successfully deleted ${filePath}`);
+        resolve();
+      }
+    });
+  });
+}
+
 // Route to handle document uploads and parsing
 app.post('/parse-document', (req, res) => {
   const uploadSingle = upload.single('document');
@@ -119,6 +134,9 @@ app.post('/parse-document', (req, res) => {
       // Write the extracted text to a file
       fs.writeFileSync(tempFilePath, text);
       
+      // Delete the original uploaded file to save space
+      await deleteFile(filePath);
+      
       res.status(200).json({ 
         success: true, 
         message: 'Document parsed successfully',
@@ -128,6 +146,16 @@ app.post('/parse-document', (req, res) => {
       });
     } catch (error) {
       console.error('Error processing document:', error);
+      
+      // Clean up the uploaded file even if processing failed
+      if (req.file && req.file.path) {
+        try {
+          await deleteFile(req.file.path);
+        } catch (deleteError) {
+          console.error('Error deleting file after processing failure:', deleteError);
+        }
+      }
+      
       res.status(500).json({ error: error.message });
     }
   });
